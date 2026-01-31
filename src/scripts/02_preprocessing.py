@@ -19,7 +19,12 @@ N_STRINGS = 6
 MAX_FRET = 20
 N_FRETS = MAX_FRET + 1
 
-PRINT_EVERY = 50  # console stats frequency
+# --- THE FIX: SLIDING WINDOW CONFIG ---
+CONTEXT_LENGTH = 128   # The window size the model sees (approx 3 seconds)
+STRIDE = 64            # 50% Overlap. This fixes the "Flickering/Continuity" issue.
+# --------------------------------------
+
+PRINT_EVERY = 50 
 
 # =========================
 # CORE
@@ -34,8 +39,8 @@ def process_folder(mode: str):
     print(f"\n=== [{mode.upper()}] PREPROCESSING | {len(jam_files)} files ===")
 
     # ---- global stats ----
-    total_frames = 0
-    active_frames = 0
+    total_chunks = 0
+    total_polyphonic_frames = 0  # To prove to Leader that chords exist
     string_activity = np.zeros(N_STRINGS, dtype=np.int64)
     fret_activity   = np.zeros(N_FRETS, dtype=np.int64)
 
@@ -50,7 +55,6 @@ def process_folder(mode: str):
 
         audio_path = os.path.join(audio_dir, wav_file)
         jams_path  = os.path.join(jams_dir, jam_file)
-        save_path  = os.path.join(save_dir, f"{file_id}.npz")
 
         if not os.path.exists(audio_path):
             continue
@@ -71,19 +75,19 @@ def process_folder(mode: str):
         cqt = np.abs(cqt)
         cqt_db = librosa.amplitude_to_db(cqt, ref=np.max)
 
-        # normalize [0,1]
+        # Normalize [0,1]
         cqt_db -= cqt_db.min()
         cqt_db /= (cqt_db.max() + 1e-8)
+        cqt_db = cqt_db.T.astype(np.float32)  # Shape: (Total_Time, Freq_Bins)
 
-        cqt_db = cqt_db.T.astype(np.float32)  # (T, F)
-        num_frames = cqt_db.shape[0]
-        total_frames += num_frames
+        num_frames_total = cqt_db.shape[0]
 
         # =========================
-        # 2. LABEL MATRIX
+        # 2. LABEL MATRIX (POLYPHONIC)
         # =========================
-        labels = np.zeros(
-            (num_frames, N_STRINGS, N_FRETS),
+        # Shape: (Total_Time, 6 strings, 21 frets)
+        full_labels = np.zeros(
+            (num_frames_total, N_STRINGS, N_FRETS),
             dtype=np.float32
         )
 
@@ -92,11 +96,13 @@ def process_folder(mode: str):
         except Exception:
             continue
 
+        # Parse JAMS
         for ann in jam.annotations:
             if ann.namespace != "note_midi":
                 continue
 
             try:
+                # GuitarSet data_source is usually "0", "1", ... "5"
                 string_idx = int(ann.annotation_metadata.data_source)
             except Exception:
                 continue
@@ -105,64 +111,69 @@ def process_folder(mode: str):
                 continue
 
             for obs in ann:
-                start = librosa.time_to_frames(
-                    obs.time, sr=sr, hop_length=HOP_LENGTH
-                )
-                end = start + librosa.time_to_frames(
-                    obs.duration, sr=sr, hop_length=HOP_LENGTH
-                )
+                start_f = librosa.time_to_frames(obs.time, sr=sr, hop_length=HOP_LENGTH)
+                dur_f   = librosa.time_to_frames(obs.duration, sr=sr, hop_length=HOP_LENGTH)
+                end_f   = start_f + dur_f
 
+                # Calculate fret based on pitch
                 fret = int(round(obs.value - OPEN_STRINGS[string_idx]))
-                if not (0 <= fret <= MAX_FRET):
-                    continue
-
-                s = max(0, start)
-                e = min(num_frames, end)
-                labels[s:e, string_idx, fret] = 1.0
-
-        # =========================
-        # 3. STATS
-        # =========================
-        frame_active = labels.sum(axis=(1, 2)) > 0
-        active_frames += frame_active.sum()
-
-        string_activity += labels.sum(axis=(0, 2)).astype(np.int64)
-        fret_activity   += labels.sum(axis=(0, 1)).astype(np.int64)
+                
+                if 0 <= fret <= MAX_FRET:
+                    s = max(0, start_f)
+                    e = min(num_frames_total, end_f)
+                    full_labels[s:e, string_idx, fret] = 1.0
 
         # =========================
-        # 4. SAVE
+        # 3. SLIDING WINDOW CHUNKING (The Fix)
         # =========================
-        np.savez_compressed(
-            save_path,
-            cqt=cqt_db,
-            labels=labels
-        )
+        # We slice the long track into small overlapping pieces
+        
+        for start_idx in range(0, num_frames_total - CONTEXT_LENGTH, STRIDE):
+            end_idx = start_idx + CONTEXT_LENGTH
+            
+            # Slice Input and Output
+            cqt_chunk = cqt_db[start_idx:end_idx, :]       # (128, 192)
+            label_chunk = full_labels[start_idx:end_idx, :, :] # (128, 6, 21)
 
-        # =========================
-        # 5. CONSOLE LOG
-        # =========================
-        if (idx + 1) % PRINT_EVERY == 0:
-            print(
-                f"[{mode}] {idx+1:3d}/{len(jam_files)} | "
-                f"frames: {total_frames:,} | "
-                f"active: {active_frames/total_frames:.2%}"
+            # Check if chunk has any info (optional, but saves space)
+            if np.sum(label_chunk) == 0:
+                # Skip pure silence chunks to balance data? 
+                # For now, let's keep them to learn silence.
+                pass
+
+            # Save as separate mini-file
+            chunk_name = f"{file_id}_chunk{start_idx}.npz"
+            save_path = os.path.join(save_dir, chunk_name)
+            
+            np.savez_compressed(
+                save_path,
+                cqt=cqt_chunk,
+                labels=label_chunk
             )
+            
+            # Stats Collection
+            total_chunks += 1
+            
+            # Count how many frames in this chunk have >1 note playing (Polyphony check)
+            # Sum over strings (axis 1), if > 1, it's a chord
+            active_notes_per_frame = label_chunk.sum(axis=(1, 2)) # Shape (128,)
+            poly_frames_in_chunk = (active_notes_per_frame > 1).sum()
+            total_polyphonic_frames += poly_frames_in_chunk
+            
+            string_activity += label_chunk.sum(axis=(0, 2)).astype(np.int64)
+            fret_activity   += label_chunk.sum(axis=(0, 1)).astype(np.int64)
 
     # =========================
     # FINAL SUMMARY
     # =========================
     print(f"\n--- [{mode.upper()}] SUMMARY ---")
-    print(f"Total frames      : {total_frames:,}")
-    print(f"Active frames     : {active_frames:,} "
-          f"({active_frames/total_frames:.2%})")
+    print(f"Total Chunks Generated : {total_chunks:,}")
+    print(f"Total Polyphonic Frames: {total_polyphonic_frames:,}")
+    print(f"   (Evidence that GuitarSet is NOT monophonic)")
 
-    print("\nString activity (frame-count):")
+    print("\nString activity:")
     for i, v in enumerate(string_activity):
         print(f"  String {i}: {v:,}")
-
-    print("\nTop frets (most active):")
-    for f in np.argsort(fret_activity)[-5:][::-1]:
-        print(f"  Fret {f:2d}: {fret_activity[f]:,}")
 
 # =========================
 # ENTRY
@@ -171,4 +182,4 @@ if __name__ == "__main__":
     for mode in MODES:
         process_folder(mode)
 
-    print("\n✅ Preprocessing finished cleanly.\n")
+    print("\n✅ Preprocessing finished cleanly with Overlap.\n")
