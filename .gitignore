@@ -211,5 +211,13 @@ __pycache__/
 .ipynb_checkpoints/
 *.DS_Store
 
-C:\CS Phenikaa\Project\GuitarAI\GUITAR-AI\src\scripts\data\
-C:\CS Phenikaa\Project\GuitarAI\GUITAR-AI\src\scripts\processed_data\
+# Ignore raw data and annotations
+data/
+**/data/
+
+# Ignore processed data (numpy files, etc.)
+processed_data/
+**/processed_data/
+
+# Ignore saved model weights
+saved_models/

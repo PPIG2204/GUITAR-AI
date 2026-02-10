@@ -28,7 +28,7 @@ N_STRINGS = 6
 N_FRETS   = 21
 
 USE_AMP = True
-USE_MORPH = True
+USE_MORPH = True           # Applied to raw, Viterbi has its own smoothing
 
 # ==================================================
 # DEVICE
@@ -69,7 +69,7 @@ def infer_file(model, cqt):
         x = torch.from_numpy(np.stack(batch)) \
                 .float().unsqueeze(1).to(device)
 
-        with torch.cuda.amp.autocast(enabled=USE_AMP):
+        with torch.amp.autocast('cuda', enabled=USE_AMP):
             y = torch.sigmoid(model(x))
 
         preds.append(y.cpu().numpy())
@@ -78,7 +78,82 @@ def infer_file(model, cqt):
     return preds.reshape(-1, N_STRINGS, N_FRETS)
 
 # ==================================================
-# DECODING
+# VITERBI LOGIC
+# ==================================================
+# ==================================================
+# VITERBI LOGIC (Calibrated for Threshold 0.70)
+# ==================================================
+class GuitarViterbi:
+    def __init__(self, n_frets=21, threshold=0.70):
+        self.n_frets = n_frets
+        self.n_states = n_frets + 1 
+        self.silence_idx = n_frets
+        self.threshold = threshold 
+        
+        # RE-CALIBRATED HEURISTICS
+        # Since we are comparing e.g., 0.8 vs 0.7, the log-diff is small (~0.13).
+        # We must lower the penalties to match this smaller "energy" scale.
+        self.jump_penalty = 0.5    # Was 10.0 (Too strict for new scale)
+        self.onset_penalty = 0.2   # Was 5.0  (Was blocking valid notes)
+        self.sustain_bonus = 0.1   # Was 2.0  (Gentle encouragement)
+        
+    def decode_string(self, prob_matrix_1d):
+        """
+        Run Viterbi on a single string (T, 21)
+        """
+        T, F = prob_matrix_1d.shape
+        
+        # 1. EMISSION MATRIX
+        # FIX: We set the "Silence" score exactly to the Threshold.
+        # This forces the decoder to prefer silence unless the note probability 
+        # explicitly exceeds the user's threshold (0.7).
+        silence_scores = np.full((T, 1), self.threshold)
+        
+        emissions = np.hstack([prob_matrix_1d, silence_scores]) # (T, 22)
+        
+        # Log domain for numerical stability
+        eps = 1e-6 
+        log_emissions = np.log(emissions + eps)
+        
+        # 2. Initialize DP Tables
+        path_probs = np.zeros((T, self.n_states))
+        path_pointers = np.zeros((T, self.n_states), dtype=int)
+        
+        path_probs[0] = log_emissions[0]
+        
+        # 3. Transition Matrix
+        trans_mat = np.zeros((self.n_states, self.n_states))
+        
+        fret_indices = np.arange(self.n_frets)
+        for f_prev in range(self.n_frets):
+            dist = np.abs(fret_indices - f_prev)
+            trans_mat[f_prev, :self.n_frets] = - (dist * self.jump_penalty)
+            trans_mat[f_prev, f_prev] += self.sustain_bonus 
+
+        # Silence Transitions
+        trans_mat[self.silence_idx, self.silence_idx] = 0        
+        trans_mat[:self.n_frets, self.silence_idx]    = 0        
+        trans_mat[self.silence_idx, :self.n_frets]    = -self.onset_penalty 
+
+        # 4. Forward Pass
+        for t in range(1, T):
+            scores = path_probs[t-1][:, None] + trans_mat
+            best_prev_scores = np.max(scores, axis=0)
+            best_prev_states = np.argmax(scores, axis=0)
+            path_probs[t] = best_prev_scores + log_emissions[t]
+            path_pointers[t] = best_prev_states
+            
+        # 5. Backward Pass
+        best_path = np.zeros(T, dtype=int)
+        best_path[-1] = np.argmax(path_probs[-1])
+        
+        for t in range(T-2, -1, -1):
+            best_path[t] = path_pointers[t+1, best_path[t+1]]
+            
+        return best_path
+
+# ==================================================
+# DECODING WRAPPERS
 # ==================================================
 def raw_threshold_decode(prob):
     binary = (prob > THRESHOLD).astype(np.float32)
@@ -89,25 +164,24 @@ def raw_threshold_decode(prob):
 
 def constraint_decode(prob):
     """
-    Enforce: at most 1 fret per string per frame
+    Applies Viterbi Decoding string-by-string.
     """
     T = prob.shape[0]
     out = np.zeros_like(prob, dtype=np.float32)
-
-    # argmax over fret axis
-    max_fret = prob.argmax(axis=2)          # (T, 6)
-    max_prob = prob.max(axis=2)              # (T, 6)
-
-    mask = max_prob > THRESHOLD
-
+    
+    decoder = GuitarViterbi(n_frets=N_FRETS)
+    
+    # Iterate over each string (Polyphonic = 6 Monophonic channels)
     for s in range(N_STRINGS):
-        idx = np.where(mask[:, s])[0]
-        out[idx, s, max_fret[idx, s]] = 1.0
-
-    if USE_MORPH:
-        out = ndimage.binary_closing(out, structure=np.ones((4,1,1)))
-        out = ndimage.binary_opening(out, structure=np.ones((2,1,1)))
-
+        string_prob = prob[:, s, :] # (T, 21)
+        path = decoder.decode_string(string_prob)
+        
+        # Convert state indices back to one-hot matrix
+        for t in range(T):
+            state = path[t]
+            if state < N_FRETS: # If not silence
+                out[t, s, state] = 1.0
+                
     return out
 
 # ==================================================
@@ -124,15 +198,14 @@ def main():
     ])
 
     print("="*70)
-    print("🎸 GUITAR TAB TRANSCRIPTION – CONSTRAINT DECODING EVAL")
+    print("🎸 GUITAR TAB TRANSCRIPTION – VITERBI EVALUATION")
     print("="*70)
     print(f"Test files        : {len(test_files)}")
     print(f"Context length    : {CONTEXT}")
     print(f"Batch size        : {BATCH_SIZE}")
-    print(f"Threshold         : {THRESHOLD}")
+    print(f"Threshold (Raw)   : {THRESHOLD}")
     print(f"Device            : {device}")
     print(f"AMP enabled       : {USE_AMP}")
-    print(f"Morphology        : {USE_MORPH}")
     print("="*70)
 
     # ---------- LOAD MODEL ----------
@@ -161,7 +234,10 @@ def main():
         prob   = prob[:T]
         labels = labels[:T]
 
+        # 1. Raw Threshold (with Morphology)
         raw  = raw_threshold_decode(prob)
+        
+        # 2. Viterbi Decoding (Physics constrained)
         cons = constraint_decode(prob)
 
         Y_true.append(labels)
@@ -193,12 +269,12 @@ def main():
     print("-"*50)
 
     print("\n======================================================================")
-    print("📊 COMPARISON: RAW vs CONSTRAINT DECODING")
+    print("📊 COMPARISON: RAW (MORPH) vs VITERBI DECODING")
     print("======================================================================")
     print(f"{'Method':<20}{'Precision':>10}{'Recall':>10}{'F1':>10}")
     print("-"*50)
-    print(f"{'Raw threshold':<20}{pr_raw:10.4f}{rc_raw:10.4f}{f1_raw:10.4f}")
-    print(f"{'Constraint':<20}{pr_con:10.4f}{rc_con:10.4f}{f1_con:10.4f}")
+    print(f"{'Raw (+Morph)':<20}{pr_raw:10.4f}{rc_raw:10.4f}{f1_raw:10.4f}")
+    print(f"{'Viterbi':<20}{pr_con:10.4f}{rc_con:10.4f}{f1_con:10.4f}")
     print("="*70)
 
     # ==================================================
@@ -207,15 +283,15 @@ def main():
     with open(CSV_PATH, "w", encoding="utf-8") as f:
         f.write("method,precision,recall,f1\n")
         f.write(f"raw,{pr_raw:.4f},{rc_raw:.4f},{f1_raw:.4f}\n")
-        f.write(f"constraint,{pr_con:.4f},{rc_con:.4f},{f1_con:.4f}\n")
+        f.write(f"viterbi,{pr_con:.4f},{rc_con:.4f},{f1_con:.4f}\n")
 
     # ==================================================
     # BAR PLOT
     # ==================================================
     plt.figure(figsize=(6,4))
-    plt.bar(["Raw", "Constraint"], [f1_raw, f1_con])
+    plt.bar(["Raw (+Morph)", "Viterbi"], [f1_raw, f1_con], color=['gray', 'green'])
     plt.ylabel("F1-score")
-    plt.title("Effect of Constraint Decoding")
+    plt.title("Effect of Physics-Constrained Viterbi")
     plt.ylim(0,1)
     plt.grid(axis="y", alpha=0.3)
     plt.tight_layout()
@@ -224,7 +300,7 @@ def main():
 
     print("📁 CSV saved to :", CSV_PATH)
     print("📊 Plot saved to:", PLOT_DIR)
-    print("✅ Constraint decoding evaluation complete.")
+    print("✅ Evaluation complete.")
     print("="*70)
 
 # ==================================================

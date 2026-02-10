@@ -1,0 +1,3 @@
+method,precision,recall,f1
+raw,0.5537,0.8192,0.6608
+viterbi,0.5880,0.8085,0.6808
