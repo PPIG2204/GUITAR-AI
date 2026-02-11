@@ -11,7 +11,7 @@ from model import GuitarTranscriberCNN
 TEST_DIR   = "./processed_data/test"
 MODEL_PATH = "./saved_models/guitar_model.pth"
 
-OUTPUT_DIR = r"E:/Old_CQT_Guitar_TAB/scripts/output_tab"
+OUTPUT_DIR = "./output_tab"
 
 THRESHOLD   = 0.4
 CONTEXT     = 128
@@ -87,8 +87,7 @@ def run_inference(model, cqt):
         x = torch.from_numpy(np.stack(batch)) \
                 .float() \
                 .unsqueeze(1) \
-                .pin_memory() \
-                .to(device, non_blocking=True)
+                .to(device)
 
         y = torch.sigmoid(model(x))
         preds.append(y.cpu().numpy())

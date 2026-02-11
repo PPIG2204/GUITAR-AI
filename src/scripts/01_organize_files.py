@@ -6,8 +6,10 @@ from tqdm import tqdm
 # =========================
 # CONFIG
 # =========================
-SOURCE_AUDIO = r"C:\CS Phenikaa\Project\GuitarAI\data\audio_mono-mic"
-SOURCE_JAMS  = r"C:\CS Phenikaa\Project\GuitarAI\data\annotation"
+BASE_DIR = Path(__file__).resolve().parent.parent
+
+SOURCE_AUDIO = BASE_DIR / "data" / "audio_mono-mic"
+SOURCE_JAMS  = BASE_DIR / "data" / "annotation"
 
 PLAYER_TEST_ID = "05"
 
