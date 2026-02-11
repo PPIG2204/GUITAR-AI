@@ -63,8 +63,6 @@ This guide provides step-by-step instructions for setting up and running the **G
 Before starting, ensure you have the following installed:
 * **Git:** [Download Here](https://git-scm.com/downloads)
 * **Python 3.8+:** [Download Here](https://www.python.org/downloads/)
-* **Anaconda or Miniconda (Recommended):** [Download Here](https://docs.conda.io/en/latest/miniconda.html) - Highly recommended for managing data science libraries like PyTorch.
-
 ---
 
 ## 🛠️ 1. Installation & Setup
