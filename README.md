@@ -106,7 +106,7 @@ sudo apt install ffmpeg libsndfile1
 ```
 
 #### Windows: 
-Download via (Gyan.dev) and add the bin folder to your System Path.
+Download via [Gyan.dev](https://www.gyan.dev/ffmpeg/) and add the bin folder to your System Path.
 
 ## 2. Running the scripts
 ### 0. Change Directory
