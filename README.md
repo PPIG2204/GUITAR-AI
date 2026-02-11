@@ -77,11 +77,11 @@ git clone https://github.com/PPIG2204/GUITAR-AI.git
 cd GUITAR-AI
 ```
 ### Step 2: Download Dataset
-* 1. **Source**: [Guitarset on Zanodo](https://zenodo.org/records/3371780)
+1. **Source**: [Guitarset on Zanodo](https://zenodo.org/records/3371780)
 
-* 2. **Files needed:** annoation.zip and audio_mono-mic.zip
+2. **Files needed:** annoation.zip and audio_mono-mic.zip
 
-* 3. **Placement:** Create a folder at GUITAR-AI/data/ and extract both zip files there.
+3. **Placement:** Create a folder at GUITAR-AI/data/ and extract both zip files there.
 
 ### Step 3: Create a Virtual Environment
 #### Linux
@@ -100,12 +100,12 @@ pip install -r requirements.txt
 ```
 #### FFmpeg: Required for audio processing.
 
-##### Linux:
+#### Linux:
 ```bash 
 sudo apt install ffmpeg libsndfile1
 ```
 
-##### Windows: 
+#### Windows: 
 Download via (Gyan.dev) and add the bin folder to your System Path.
 
 ## 2. Running the scripts
@@ -128,7 +128,7 @@ python3 03_train.py
 ```bash
 python3 05_generate_tab.py --file path/to/your_audio.wav
 ```
-* **Example:**
+* **For example:**
 ```bash
 python3 05_generate_tab.py --file ../../data/audio_mono-mic/Deptrai_solo.wav
 ```
