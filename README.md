@@ -124,11 +124,7 @@ python3 03_train.py
 
 ### 3. Generate Tablature (Inference)
 ```bash
-python3 05_generate_tab.py --file path/to/your_audio.wav
-```
-* **For example:**
-```bash
-python3 05_generate_tab.py --file ../../data/audio_mono-mic/Deptrai_solo.wav
+python3 05_generate_tab.py 
 ```
 * The result tablature will be in GUITAR-AI/output_tab/
 ### 4. Evaluation
