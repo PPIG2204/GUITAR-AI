@@ -77,7 +77,7 @@ cd GUITAR-AI
 ### Step 2: Download Dataset
 1. **Source**: [Guitarset on Zanodo](https://zenodo.org/records/3371780)
 
-2. **Files needed:** annoation.zip and audio_mono-mic.zip
+2. **Files needed:** annotation.zip and audio_mono-mic.zip
 
 3. **Placement:** Create a folder at GUITAR-AI/data/ and extract both zip files there.
 
