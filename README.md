@@ -126,7 +126,6 @@ python3 03_train.py
 ```bash
 python3 05_generate_tab.py 
 ```
-* The result tablature will be in GUITAR-AI/output_tab/
 ### 4. Evaluation
 ```bash
 python3 08_threshold_sweep.py
