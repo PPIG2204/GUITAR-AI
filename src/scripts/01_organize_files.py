@@ -6,7 +6,7 @@ from pathlib import Path
 # =========================
 # CONFIG
 # =========================
-BASE_DIR = Path(__file__).resolve().parent.parent
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 SOURCE_AUDIO = BASE_DIR / "data" / "audio_mono-mic"
 SOURCE_JAMS  = BASE_DIR / "data" / "annotation"
