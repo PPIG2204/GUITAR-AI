@@ -42,9 +42,62 @@ The project utilizes a numbered script pipeline located in `src/scripts/` to ens
 | `08_threshold_sweep.py` | Optimizes the probability threshold for note detection. |
 | `09_constraint_decoding.py` | Compares `raw` model output vs. `viterbi` decoding. |
 
-## ⚡ Usage
+# How to Run GUITAR-AI (Windows & Linux)
 
-### 1. Setup & Data
-Ensure you have the **GuitarSet** dataset downloaded. Run the environment check to confirm dependencies:
+This guide provides step-by-step instructions for setting up and running the **GUITAR-AI** pipeline on both Windows and Linux environments.
+
+## 📋 Prerequisites
+
+Before starting, ensure you have the following installed:
+* **Git:** [Download Here](https://git-scm.com/downloads)
+* **Python 3.8+:** [Download Here](https://www.python.org/downloads/)
+* **Anaconda or Miniconda (Recommended):** [Download Here](https://docs.conda.io/en/latest/miniconda.html) - Highly recommended for managing data science libraries like PyTorch.
+
+---
+
+## 🛠️ 1. Installation & Setup
+
+### Clone the Repository
+Open your terminal (Linux) or Command Prompt/PowerShell (Windows) and run:
+
 ```bash
-python src/scripts/00_check_environment.py
+git clone [https://github.com/PPIG2204/GUITAR-AI.git](https://github.com/PPIG2204/GUITAR-AI.git)
+cd GUITAR-AI
+```
+### Create a Virtual Environment
+#### Linux/macOS
+```bash
+python3 -m venv venv
+source venv/bin/activate
+```
+#### Windows
+```bash
+python -m venv venv
+.\venv\Scripts\activate
+```
+### Install Dependencies
+```bash
+pip install -r requirements.txt
+pip install
+```
+#### FFmpeg: Required for audio processing.
+
+#####Linux:
+```bash 
+sudo apt install ffmpeg
+```
+
+##### Windows: 
+Download via Gyan.dev and add to Path.
+## 🌳 2. Project Structure
+```bash
+GUITAR-AI/
+├── data/               # Raw audio and annotations (JAMS files)
+├── src/
+│   ├── models/         # Neural network architectures
+│   └── scripts/        # Data preprocessing and utility scripts
+├── output_tab/         # Generated tablature results
+├── config.yaml         # Project configurations
+└── requirements.txt    # Python dependencies
+```
+
