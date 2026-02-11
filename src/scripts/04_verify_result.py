@@ -16,7 +16,7 @@ DATA_ROOT   = "./processed_data/test/"
 MODEL_PATH  = "./saved_models/guitar_model.pth"
 PLOT_DIR    = r"E:/Old_CQT_Guitar_TAB/scripts/plots"
 
-THRESHOLD   = 0.4
+THRESHOLD   = 0.7
 CONTEXT     = 128
 BATCH_SIZE  = 16
 

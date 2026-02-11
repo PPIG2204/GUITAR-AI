@@ -16,13 +16,13 @@ from model import GuitarTranscriberCNN
 TRAIN_DIR = "./processed_data/train/"
 OUT_DIR = "./saved_models"
 
-BATCH_SIZE = 16
-EPOCHS = 10
+BATCH_SIZE = 8 # Change based on your specs. 
+EPOCHS = 25
 LR = 1e-4
 POS_WEIGHT = 15.0
 
 CONTEXT = 128
-NUM_WORKERS = 4   # sweet spot for i7-9700
+NUM_WORKERS = 4   
 SEED = 42
 
 # =========================
