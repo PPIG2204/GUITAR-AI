@@ -5,13 +5,17 @@ import librosa
 import soundfile as sf
 import numpy as np
 from tqdm import tqdm
+import sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from paths import HEX_AUDIO, ANNOTATION, ATOM_DIR
+
 
 # =========================
 # CONFIG
 # =========================
-AUDIO_DIR = r"../../data/audio_mono-mic/"
-JAMS_DIR = r"../../data/annotation/" # Ensure this matches your folder name!
-OUTPUT_DIR = r"../../data/atoms/"
+AUDIO_DIR = str(HEX_AUDIO)      # Using hex-pickup for synthesis purity
+JAMS_DIR  = str(ANNOTATION)
+OUTPUT_DIR = str(ATOM_DIR)
 SAMPLE_RATE = 22050
 AUGMENT_HIGH_FRETS = True 
 

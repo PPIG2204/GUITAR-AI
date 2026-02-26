@@ -4,6 +4,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from paths import MODEL_DIR
 
 from torch.utils.data import Dataset, DataLoader
 from tqdm import tqdm
@@ -14,7 +15,8 @@ from model import GuitarTranscriberCNN
 # CONFIG
 # =========================
 TRAIN_DIR = "./processed_data/train/"
-OUT_DIR = "./saved_models"
+OUT_DIR = str(MODEL_DIR) 
+model_path = os.path.join(OUT_DIR, "guitar_model.pth")
 
 BATCH_SIZE = 8 # Change based on your specs. 
 EPOCHS = 25
