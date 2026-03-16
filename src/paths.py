@@ -1,21 +1,25 @@
 from pathlib import Path
 
-# This finds the absolute path to the GUITAR-AI folder
+# This finds the GUITAR-AI root folder correctly
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Data Paths
+# Data Folders
 DATA_DIR = BASE_DIR / "data"
-RAW_AUDIO  = DATA_DIR / "audio_mono-mic"
-HEX_AUDIO  = DATA_DIR / "audio_hex-pickup_debleeded"  # Your new source
+RAW_AUDIO = DATA_DIR / "audio_mono-mic"
+HEX_AUDIO = DATA_DIR / "audio_hex-pickup_debleeded"
 ANNOTATION = DATA_DIR / "annotation"
-ATOM_DIR   = DATA_DIR / "atoms"
-SYNTH_DIR  = DATA_DIR / "synthetic_chords"
+SYNTH_DIR = DATA_DIR / "synthetic_chords"
 
-# Output Paths
+# Preprocessed Output Folders
+PROCESSED_DIR = BASE_DIR / "processed_data"
+TRAIN_DATA = PROCESSED_DIR / "train"
+SYNTH_DATA = PROCESSED_DIR / "synthetic"
+
+# Results
 RESULTS_DIR = BASE_DIR / "results"
-PLOT_DIR    = RESULTS_DIR / "plots"
-MODEL_DIR   = RESULTS_DIR / "saved_models"
+MODEL_DIR = RESULTS_DIR / "saved_models"
+PLOT_DIR = RESULTS_DIR / "plots"
 
-# Ensure directories exist
-for folder in [PLOT_DIR, MODEL_DIR, ATOM_DIR, SYNTH_DIR]:
+# Ensure all folders exist
+for folder in [PROCESSED_DIR, TRAIN_DATA, SYNTH_DATA, MODEL_DIR]:
     folder.mkdir(parents=True, exist_ok=True)

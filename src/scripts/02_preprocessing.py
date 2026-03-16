@@ -3,11 +3,16 @@ import numpy as np
 import librosa
 import jams
 from tqdm import tqdm
+import sys
+
+# 1. ADD PATH INJECTION
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from paths import BASE_DIR, TRAIN_DATA
 
 # =========================
 # CONFIG
 # =========================
-MODES = ["train", "test"]
+MODES = ["train", "test"] # Note: Ensure you have a 'test' folder in data/ if using both
 
 SAMPLE_RATE = 22050
 HOP_LENGTH = 512
@@ -19,22 +24,21 @@ N_STRINGS = 6
 MAX_FRET = 20
 N_FRETS = MAX_FRET + 1
 
-# --- THE FIX: SLIDING WINDOW CONFIG ---
-CONTEXT_LENGTH = 128   # The window size the model sees (approx 3 seconds)
-STRIDE = 64            # 50% Overlap. This fixes the "Flickering/Continuity" issue.
-# --------------------------------------
-
-PRINT_EVERY = 50 
+CONTEXT_LENGTH = 128   
+STRIDE = 64            
 
 # =========================
 # CORE
 # =========================
 def process_folder(mode: str):
-    audio_dir = f"./data/{mode}/audio/"
-    jams_dir  = f"./data/{mode}/jams/"
-    save_dir  = f"./processed_data/{mode}/"
+    # 2. UPDATE PATH LOGIC TO USE BASE_DIR
+    audio_dir = BASE_DIR / "data" / f"audio_mono-mic" # Pointing to your raw audio
+    jams_dir  = BASE_DIR / "data" / "annotation"
+    save_dir  = BASE_DIR / "processed_data" / mode
+    
     os.makedirs(save_dir, exist_ok=True)
 
+    # Use glob or listdir on the Path object
     jam_files = sorted(f for f in os.listdir(jams_dir) if f.endswith(".jams"))
     print(f"\n=== [{mode.upper()}] PREPROCESSING | {len(jam_files)} files ===")
 

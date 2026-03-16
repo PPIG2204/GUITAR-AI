@@ -4,35 +4,38 @@ import numpy as np
 import torch
 import scipy.ndimage as ndimage
 import matplotlib.pyplot as plt
+import sys
 
 from tqdm import tqdm
 from sklearn.metrics import precision_score, recall_score, f1_score
+
+# 1. PATH INJECTION
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from paths import MODEL_DIR, BASE_DIR, RESULTS_DIR, PLOT_DIR
+
 from model import GuitarTranscriberCNN
 
 # ==================================================
-# CONFIG
+# CONFIG (Calibrated to Script 08 Results)
 # ==================================================
-TEST_DIR   = "./processed_data/test"
-MODEL_PATH = "./saved_models/guitar_model.pth"
+TEST_DIR   = str(BASE_DIR / "processed_data" / "test")
+MODEL_PATH = str(MODEL_DIR / "guitar_model.pth")
 
-OUTPUT_DIR = "./results"
-PLOT_DIR   = r"E:\Old_CQT_Guitar_TAB\scripts\plots"
+OUTPUT_DIR = str(RESULTS_DIR)
+TARGET_PLOT_DIR = str(PLOT_DIR)
 
 CSV_PATH = os.path.join(OUTPUT_DIR, "constraint_decoding_metrics.csv")
 
 CONTEXT     = 128
-BATCH_SIZE  = 16           # GTX 1660 sweet spot
-THRESHOLD   = 0.70         # best from script 08
+BATCH_SIZE  = 16 
+THRESHOLD   = 0.85 # UPDATED: Matches your best calibration
 
 N_STRINGS = 6
 N_FRETS   = 21
 
 USE_AMP = True
-USE_MORPH = True           # Applied to raw, Viterbi has its own smoothing
+USE_MORPH = True 
 
-# ==================================================
-# DEVICE
-# ==================================================
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 torch.backends.cudnn.benchmark = True
 
@@ -78,78 +81,54 @@ def infer_file(model, cqt):
     return preds.reshape(-1, N_STRINGS, N_FRETS)
 
 # ==================================================
-# VITERBI LOGIC
-# ==================================================
-# ==================================================
-# VITERBI LOGIC (Calibrated for Threshold 0.70)
+# VITERBI LOGIC (Calibrated for High-Fidelity)
 # ==================================================
 class GuitarViterbi:
-    def __init__(self, n_frets=21, threshold=0.70):
+    def __init__(self, n_frets=21, threshold=0.85): # Synchronized
         self.n_frets = n_frets
         self.n_states = n_frets + 1 
         self.silence_idx = n_frets
         self.threshold = threshold 
         
-        # RE-CALIBRATED HEURISTICS
-        # Since we are comparing e.g., 0.8 vs 0.7, the log-diff is small (~0.13).
-        # We must lower the penalties to match this smaller "energy" scale.
-        self.jump_penalty = 0.5    # Was 10.0 (Too strict for new scale)
-        self.onset_penalty = 0.2   # Was 5.0  (Was blocking valid notes)
-        self.sustain_bonus = 0.1   # Was 2.0  (Gentle encouragement)
+        # PHYSICS-BASED HEURISTICS
+        self.jump_penalty = 0.5    # Penalize large fret jumps
+        self.onset_penalty = 0.2   # Discourage "flickering" notes
+        self.sustain_bonus = 0.1   # Encourage temporal continuity
         
     def decode_string(self, prob_matrix_1d):
-        """
-        Run Viterbi on a single string (T, 21)
-        """
         T, F = prob_matrix_1d.shape
-        
-        # 1. EMISSION MATRIX
-        # FIX: We set the "Silence" score exactly to the Threshold.
-        # This forces the decoder to prefer silence unless the note probability 
-        # explicitly exceeds the user's threshold (0.7).
+        # emission score for silence is exactly our calibrated threshold
         silence_scores = np.full((T, 1), self.threshold)
+        emissions = np.hstack([prob_matrix_1d, silence_scores])
         
-        emissions = np.hstack([prob_matrix_1d, silence_scores]) # (T, 22)
-        
-        # Log domain for numerical stability
         eps = 1e-6 
         log_emissions = np.log(emissions + eps)
         
-        # 2. Initialize DP Tables
         path_probs = np.zeros((T, self.n_states))
         path_pointers = np.zeros((T, self.n_states), dtype=int)
-        
         path_probs[0] = log_emissions[0]
         
-        # 3. Transition Matrix
+        # TRANSITION MATRIX: String-Specific Monophony
         trans_mat = np.zeros((self.n_states, self.n_states))
-        
         fret_indices = np.arange(self.n_frets)
         for f_prev in range(self.n_frets):
             dist = np.abs(fret_indices - f_prev)
             trans_mat[f_prev, :self.n_frets] = - (dist * self.jump_penalty)
             trans_mat[f_prev, f_prev] += self.sustain_bonus 
 
-        # Silence Transitions
         trans_mat[self.silence_idx, self.silence_idx] = 0        
         trans_mat[:self.n_frets, self.silence_idx]    = 0        
         trans_mat[self.silence_idx, :self.n_frets]    = -self.onset_penalty 
 
-        # 4. Forward Pass
         for t in range(1, T):
             scores = path_probs[t-1][:, None] + trans_mat
-            best_prev_scores = np.max(scores, axis=0)
-            best_prev_states = np.argmax(scores, axis=0)
-            path_probs[t] = best_prev_scores + log_emissions[t]
-            path_pointers[t] = best_prev_states
+            path_probs[t] = np.max(scores, axis=0) + log_emissions[t]
+            path_pointers[t] = np.argmax(scores, axis=0)
             
-        # 5. Backward Pass
         best_path = np.zeros(T, dtype=int)
         best_path[-1] = np.argmax(path_probs[-1])
-        
         for t in range(T-2, -1, -1):
             best_path[t] = path_pointers[t+1, best_path[t+1]]
-            
         return best_path
 
 # ==================================================

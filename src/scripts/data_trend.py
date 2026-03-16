@@ -1,20 +1,38 @@
 import os
 import glob
-import matplotlib.pyplot as plt
 import numpy as np
+import matplotlib.pyplot as plt
+from tqdm import tqdm
 
-# Modified data_trend for raw atoms
-atoms = glob.glob("../../data/atoms/*.wav")
-dist = np.zeros((6, 25)) # Up to fret 24
+# Point to your newly preprocessed synthetic data
+data_path = "../../processed_data/synthetic/*.npz"
+files = glob.glob(data_path)
 
-for a in atoms:
-    parts = os.path.basename(a).split('_')
-    s = int(parts[0].replace('str', ''))
-    f = int(parts[1].replace('fr', ''))
-    dist[s, f] += 1
+if not files:
+    print(f"❌ No files found in {data_path}. Check your preprocessing output.")
+    exit()
 
+# Initialize distribution (6 strings, 21 frets)
+# Note: GuitarSet typically uses 21 frets (0-20)
+dist = np.zeros((6, 21)) 
+
+print(f"📊 Analyzing {len(files)} synthetic chords...")
+
+for f in tqdm(files):
+    data = np.load(f)
+    labels = data['labels'] # Shape: (Time, 6, 21)
+    
+    # Sum across the time axis (axis 0) 
+    # and add to the global distribution
+    dist += np.sum(labels, axis=0)
+
+# Plotting the result
+plt.figure(figsize=(12, 6))
 plt.imshow(dist, aspect='auto', origin='lower', cmap='viridis')
-plt.title("Harvested Note Distribution (Atoms)")
-plt.xlabel("Fret")
-plt.ylabel("String")
+plt.colorbar(label='Frame Count')
+plt.title("Synthetic Fretboard Distribution (Processed NPZ)")
+plt.xlabel("Fret Number")
+plt.ylabel("String (0=High E, 5=Low E)")
+plt.xticks(range(21))
+plt.yticks(range(6))
 plt.show()

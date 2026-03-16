@@ -4,7 +4,9 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from paths import MODEL_DIR
+import sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from paths import MODEL_DIR, BASE_DIR, TRAIN_DATA, SYNTH_DATA
 
 from torch.utils.data import Dataset, DataLoader
 from tqdm import tqdm
@@ -14,9 +16,11 @@ from model import GuitarTranscriberCNN
 # =========================
 # CONFIG
 # =========================
-TRAIN_DIR = "./processed_data/train/"
-OUT_DIR = str(MODEL_DIR) 
-model_path = os.path.join(OUT_DIR, "guitar_model.pth")
+TRAIN_DIRS = [
+    str(TRAIN_DATA),
+    str(SYNTH_DATA)
+]
+OUT_DIR = str(MODEL_DIR)
 
 BATCH_SIZE = 8 # Change based on your specs. 
 EPOCHS = 25
@@ -43,44 +47,48 @@ set_seed(SEED)
 # DATASET
 # =========================
 class GuitarDataset(Dataset):
-    def __init__(self, data_dir, context_width=128):
+    def __init__(self, data_dirs, context_width=128):
         self.context = context_width
         self.index = []
+        self.files = []
 
-        self.files = sorted(
-            os.path.join(data_dir, f)
-            for f in os.listdir(data_dir)
-            if f.endswith(".npz")
-        )
+        # Ensure data_dirs is a list even if a single string is passed
+        if isinstance(data_dirs, str):
+            data_dirs = [data_dirs]
 
-        print(f"📂 Indexing {len(self.files)} files...")
+        for d_dir in data_dirs:
+            print(f"📂 Indexing files in {d_dir}...")
+            found_files = sorted(
+                os.path.join(d_dir, f)
+                for f in os.listdir(d_dir)
+                if f.endswith(".npz")
+            )
+            self.files.extend(found_files)
 
         for f in self.files:
             with np.load(f) as d:
+                # Use ['cqt'] key to find length
                 n_frames = d["cqt"].shape[0]
 
             n_chunks = n_frames // context_width
             for i in range(n_chunks):
                 self.index.append((f, i * context_width))
 
-        print(f"🧩 Total training chunks: {len(self.index):,}")
-
-    def __len__(self):
-        return len(self.index)
+        print(f"🧩 Total mixed training chunks: {len(self.index):,}")
 
     def __getitem__(self, idx):
         path, start = self.index[idx]
-
         with np.load(path) as d:
-            cqt = d["cqt"][start:start+self.context]     # (T, F)
-            lbl = d["labels"][start:start+self.context]  # (T, 6, 21)
+            cqt = d["cqt"][start : start + self.context]     # (T, F)
+            lbl = d["labels"][start : start + self.context]  # (T, 6, 21)
 
-        # (1, F, T)
+        # Reshape for CNN: (Channels, Freq, Time)
         cqt = torch.from_numpy(cqt.T).float().unsqueeze(0)
         lbl = torch.from_numpy(lbl).float()
-
         return cqt, lbl
 
+    def __len__(self):
+        return len(self.index)
 # =========================
 # TRAIN LOOP
 # =========================
@@ -88,7 +96,8 @@ def train():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"\n🚀 Training on: {device}")
 
-    dataset = GuitarDataset(TRAIN_DIR, CONTEXT)
+    # Pass the LIST of directories defined in CONFIG
+    dataset = GuitarDataset(TRAIN_DIRS, CONTEXT)
 
     loader = DataLoader(
         dataset,
