@@ -221,3 +221,19 @@ processed_data/
 
 # Ignore saved model weights
 saved_models/
+
+# Ignore audio and midi files
+*.mp3
+*.mid
+*.wav
+
+# Ignore results and metrics
+results/
+**/results/
+*.csv
+*.png
+
+# Ignore Python environment/cache
+__pycache__/
+*.pyc
+.venv/
