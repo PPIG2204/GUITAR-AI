@@ -17,23 +17,22 @@ class GuitarTranscriberCNN(nn.Module):
         )
         
         # ---------------------------------------------------------
-        # THE DYNAMIC MATH ENGINE
+        # THE DYNAMIC MATH ENGINE (Auto-calculating input size)
         # ---------------------------------------------------------
-        # 1. Figure out how tall the incoming spectrogram is
         if config.FEATURE_TYPE == 'CQT':
             input_height = config.CQT_BINS
         elif config.FEATURE_TYPE == 'MEL':
             input_height = config.N_MELS
         elif config.FEATURE_TYPE == 'STFT':
             input_height = (config.N_FFT // 2) + 1
-            
-        # 2. Simulate the max pooling math (divide by 4, then 4, then 2 = divide by 32)
-        pooled_height = input_height // 32
-        
-        # 3. Calculate the exact number of nodes required for the Linear Layer
-        # (128 channels * pooled_height)
-        linear_input_size = 128 * pooled_height
-        
+
+        # Use a dummy tensor to get the exact output shape of conv_block
+        with torch.no_grad():
+            dummy_input = torch.zeros(1, 1, input_height, config.CONTEXT_LENGTH)
+            dummy_output = self.conv_block(dummy_input)
+            # Flatten everything except batch and time (the time dimension is config.CONTEXT_LENGTH)
+            linear_input_size = dummy_output.shape[1] * dummy_output.shape[2]
+
         self.classifier = nn.Sequential(
             nn.Dropout(0.5),
             nn.Linear(linear_input_size, 6 * 21)
