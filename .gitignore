@@ -238,3 +238,7 @@ __pycache__/
 *.pyc
 .venv/
 .aider*
+
+# Aider history files
+.aider.chat.history.md
+.aider.input.history
