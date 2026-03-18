@@ -33,13 +33,22 @@ class GuitarTranscriberCNN(nn.Module):
             # Flatten everything except batch and time (the time dimension is config.CONTEXT_LENGTH)
             linear_input_size = dummy_output.shape[1] * dummy_output.shape[2]
 
+        self.gru = nn.GRU(
+            input_size=linear_input_size,
+            hidden_size=256,
+            num_layers=2,
+            batch_first=True,
+            bidirectional=True
+        )
+
         self.classifier = nn.Sequential(
             nn.Dropout(0.5),
-            nn.Linear(linear_input_size, 6 * 21)
+            nn.Linear(256 * 2, 6 * 21)
         )
 
     def forward(self, x):
         x = self.conv_block(x)
         x = x.permute(0, 3, 1, 2)
         x = x.reshape(x.size(0), x.size(1), -1)
+        x, _ = self.gru(x)
         return self.classifier(x).view(x.size(0), x.size(1), 6, 21)

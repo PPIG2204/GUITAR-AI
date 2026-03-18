@@ -5,7 +5,7 @@
 # ==========================================
 # Change this name for every new experiment! 
 # (e.g., "Exp_Mel_NoSynth", "Exp_STFT_Synth")
-EXPERIMENT_NAME = "Exp_STFT_NoSynth"  
+EXPERIMENT_NAME = "Exp_CQT_GRU_HighWeight"  
 
 # --- DATA SETTINGS ---
 USE_SYNTHETIC_DATA = False
@@ -33,7 +33,7 @@ N_FFT = 2048
 BATCH_SIZE = 16
 EPOCHS = 25
 LEARNING_RATE = 1e-4
-POS_WEIGHT = 30.0
+POS_WEIGHT = 50.0
 
 # --- DETERMINISM ---
 SEED = 42

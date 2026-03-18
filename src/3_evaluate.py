@@ -15,7 +15,7 @@ from model import GuitarTranscriberCNN
 # =========================
 # EVALUATION SETTINGS
 # =========================
-THRESHOLD = 0.85  # The calibrated threshold for high-fidelity
+THRESHOLD = 0.5  # Adjusted for higher POS_WEIGHT
 N_STRINGS = 6
 N_FRETS = 21
 
