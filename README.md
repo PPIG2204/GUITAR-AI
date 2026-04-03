@@ -1,134 +1,57 @@
-# GUITAR-AI: AI-Powered Guitar Tablature Generation
+# GUITAR-AI: Polyphonic CRNN Transcription Engine
 
-**GUITAR-AI** is a deep learning system designed to automatically transcribe guitar audio into digital tablature. By leveraging a Convolutional Neural Network (CNN) and advanced signal processing, it bridges the gap between raw audio recordings and readable musical notation.
+**Project Status:** Archived (Production-Ready)  
+**Architecture:** 3-Layer CNN + 2-Layer Bidirectional GRU + Viterbi Physics Engine  
 
-## 🎸 Project Overview
+## 📌 The "North Star" Objective
+While the associated academic report (*"Ràng buộc chuyển tiếp khả vi..."*) restricted its scope to monophonic (single-note) prediction to simplify mathematical modeling, **GUITAR-AI** was engineered to solve the practical challenge of **full polyphony**. This system transcribes real-world guitar chords and complex melodies into 6-string tablature, enforcing physical playability through a post-hoc Viterbi-decoding "Physics Bouncer" rather than purely theoretical loss functions.
 
-Transcribing polyphonic guitar music is a complex task due to the ambiguity of same-pitch notes existing on different strings. This project solves that by:
-1.  **Hearing:** Using Constant-Q Transform (CQT) to extract spectral features aligned with musical frequencies.
-2.  **Understanding:** A CNN model predicts the probability of active notes across all 6 strings and 19 frets.
-3.  **Refining:** Applying Viterbi decoding to enforce physical playability constraints (e.g., hand span, finger allocation).
+## 🛠️ Key Engineering Patches (Final Build)
+Unlike the base models used in the academic study, this archived version includes critical engineering fixes:
+* **The CQT Noise Floor:** Implemented a strict **80dB noise floor gate** in `1_preprocess.py` to eliminate "silence hallucinations" and ghost notes common in high-gain audio.
+* **The Open-String Fix:** Patched the quantization logic in `3_evaluate.py` to properly retain **Fret 0** (open strings), preventing the model from erroneously deleting fundamental chord components.
+* **The Physics Engine:** Integrated a Viterbi decoding algorithm tuned with a **0.5 sustain bonus** to eliminate note flickering and ensure anatomically possible finger transitions.
 
-## 🚀 Features
+## 🏗️ Technical Architecture
+Developed for high-performance execution on consumer-grade hardware (Local execution optimized).
 
-* **Polyphonic Pitch Estimation:** Detects multiple notes playing simultaneously.
-* **String & Fret Identification:** Distinguishes *where* a note is played on the fretboard, not just the pitch.
-* **Data Pipeline:** Automated scripts for processing the **GuitarSet** dataset.
-* **Playability Constraints:** Post-processing algorithms to ensure generated tabs are human-playable.
-* **Cross-Platform:** Developed and tested on Linux Mint and Windows.
-
-## 🛠️ Tech Stack
-
-* **Core:** Python 3.x
-* **Deep Learning:** PyTorch
-* **Audio Processing:** Librosa, NumPy
-* **Data Handling:** JAMS (JSON Annotated Music Specification)
-* **Tablature Output:** PyGuitarPro
+1.  **Preprocessing (`1_preprocess.py`):** Extracts Constant-Q Transform (CQT) spectrograms (192 bins, 24 bins/octave) with log-scale normalization.
+2.  **Neural Core (`model.py`):** A Convolutional Recurrent Neural Network (CRNN) that combines CNN spatial feature extraction with a **Bidirectional GRU** for temporal memory, predicting probabilities for 6 strings across 21 frets simultaneously.
+3.  **Decoding & Eval (`3_evaluate.py`):** Converts raw probabilities into quantized tablature files using a physics-aware Viterbi engine.
 
 ## 📂 Project Structure
-
 ```bash
 GUITAR-AI/
-├── data/               # Raw audio and annotations (JAMS files)
 ├── src/
-│   ├── models/         # Neural network architectures
-│   └── scripts/        # Data preprocessing and utility scripts
-├── output_tab/         # Generated tablature results
-├── config.yaml         # Project configurations
-└── requirements.txt    # Python dependencies
+│   ├── 1_preprocess.py  # Feature extraction & noise gating
+│   ├── 2_train.py       # CRNN training with Adam optimizer
+│   ├── 3_evaluate.py    # Viterbi decoding & metrics
+│   ├── model.py         # Bi-GRU + CNN Architecture
+│   ├── config.py        # Experiment control panel
+│   └── paths.py         # Dynamic path management
+└── results/             # Isolated experiment logs, plots, and metrics
 ```
 
-The project utilizes a numbered script pipeline located in `src/scripts/` to ensure a reproducible workflow:
+## 🚀 Execution Pipeline
+1.  **Configuration:** Define your experiment in `src/config.py` (e.g., `Exp_CQT_GRU_HighWeight`).
+2.  **Process:**
+    ```bash
+    python src/1_preprocess.py
+    python src/2_train.py
+    python src/3_evaluate.py
+    ```
+3.  **Archive:** Results are automatically routed to `results/[EXPERIMENT_NAME]/generated_tabs`.
 
-| Script | Description |
-| :--- | :--- |
-| `00_check_environment.py` | Verifies GPU availability and required library versions. |
-| `01_organize_files.py` | Splits **GuitarSet** into Train/Test sets (Player 05 reserved for testing). |
-| `02_preprocessing.py` | Converts audio to CQT spectrograms and JAMS to label matrices (`.npz`). |
-| `03_train.py` | Trains the CNN model and saves checkpoints. |
-| `03b_plot_model.py` | Visualizes training loss and model architecture. |
-| `04_plot_cqt.py` | Helper tool to inspect CQT features. |
-| `05_generate_tab.py` | **Inference:** Generates tablature from new audio files. |
-| `07_evaluate.py` | Calculates Precision, Recall, and F1 metrics on the test set. |
-| `08_threshold_sweep.py` | Optimizes the probability threshold for note detection. |
-| `09_constraint_decoding.py` | Compares `raw` model output vs. `viterbi` decoding. |
+## 📈 Final Performance
+The model was validated using the **GuitarSet** dataset (Player 05 hold-out).
 
+| Method | Precision | Recall | F1 Score |
+| :--- | :--- | :--- | :--- |
+| Raw CNN Output | 0.XXXX | 0.XXXX | 0.XXXX |
+| **Viterbi (Physics Aware)** | **0.XXXX** | **0.XXXX** | **0.XXXX** |
+*(Note: Replace XXXX with values from results/metrics/final_results.csv before archival)*
 
-# How to Run GUITAR-AI (Windows & Linux)
-
-This guide provides step-by-step instructions for setting up and running the **GUITAR-AI** pipeline on both Windows and Linux environments.
-
-## 📋 Prerequisites
-
-Before starting, ensure you have the following installed:
-* **Git:** [Download Here](https://git-scm.com/downloads)
-* **Python 3.8+:** [Download Here](https://www.python.org/downloads/)
 ---
-
-## 🛠️ 1. Installation & Setup
-
-### Step 1: Clone the Repository
-Open your terminal (Linux) or Command Prompt/PowerShell (Windows) and run:
-
-```bash
-git clone https://github.com/PPIG2204/GUITAR-AI.git
-cd GUITAR-AI
+**Archival Date:** Friday, April 3, 2026  
+**Next Project:** Solo Neuroscience (EEG Signal Processing)
 ```
-### Step 2: Download Dataset
-1. **Source**: [Guitarset on Zanodo](https://zenodo.org/records/3371780)
-
-2. **Files needed:** annotation.zip and audio_mono-mic.zip
-
-3. **Placement:** Create a folder at GUITAR-AI/data/ and extract both zip files there.
-
-### Step 3: Create a Virtual Environment
-#### Linux
-```bash
-python3 -m venv venv
-source venv/bin/activate
-```
-#### Windows
-```bash
-python -m venv venv
-.\venv\Scripts\activate
-```
-### Step 4: Install Dependencies
-```bash
-pip install -r requirements.txt
-```
-#### FFmpeg: Required for audio processing.
-
-#### Linux:
-```bash 
-sudo apt install ffmpeg libsndfile1
-```
-
-#### Windows: 
-Download via [Gyan.dev](https://www.gyan.dev/ffmpeg/) and add the bin folder to your System Path.
-
-## 2. Running the scripts
-### 0. Change Directory
-``` bash
-cd src/scripts
-```
-### 1. Data Organization & Preprocessing
-Organize the raw GuitarSet files and generate spectral features:
-``` bash
-python3 01_organize_files.py
-python3 02_preprocessing.py
-```
-### 2. Training
-```bash
-python3 03_train.py
-```
-
-### 3. Generate Tablature (Inference)
-```bash
-python3 05_generate_tab.py 
-```
-### 4. Evaluation
-```bash
-python3 08_threshold_sweep.py
-python3 09_constraint_decoding.py
-```
-
