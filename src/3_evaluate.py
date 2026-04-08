@@ -15,7 +15,7 @@ from model import GuitarTranscriberCNN
 # =========================
 # EVALUATION SETTINGS
 # =========================
-THRESHOLD = 0.5  # Adjusted for higher POS_WEIGHT
+THRESHOLD = 0.4  # Adjusted for higher POS_WEIGHT
 N_STRINGS = 6
 N_FRETS = 21
 
@@ -23,7 +23,7 @@ N_FRETS = 21
 # VITERBI PHYSICS ENGINE
 # =========================
 class GuitarViterbi:
-    def __init__(self, n_frets=21, threshold=0.85):
+    def __init__(self, n_frets=21, threshold=0.4): # Updated default
         self.n_frets = n_frets
         self.n_states = n_frets + 1 
         self.silence_idx = n_frets
@@ -32,7 +32,7 @@ class GuitarViterbi:
         # PHYSICS PENALTIES
         self.jump_penalty = 0.5    # Penalize large fret jumps
         self.onset_penalty = 0.2   # Discourage flickering
-        self.sustain_bonus = 0.1   # Encourage holding notes
+        self.sustain_bonus = 0.5   # INCREASED: Was 0.1. Forces notes to hold out longer!
         
     def decode_string(self, prob_matrix_1d):
         T = prob_matrix_1d.shape[0]
@@ -79,7 +79,7 @@ def apply_viterbi(prob):
     return out
 
 # =========================
-# TAB GENERATOR
+# TAB GENERATOR (Snippet)
 # =========================
 def matrix_to_tab(binary_matrix, title):
     STRING_NAMES = ["e", "B", "G", "D", "A", "E"]
@@ -91,7 +91,9 @@ def matrix_to_tab(binary_matrix, title):
             visual = 5 - s
             fret_vec = binary_matrix[t, s]
             fret = fret_vec.argmax()
-            if fret_vec[fret] > 0.5 and fret > 0:
+            
+            # THE FIX: Changed `fret > 0` to `fret >= 0` to save the open strings!
+            if fret_vec[fret] > 0.5 and fret >= 0:
                 tab_lines[visual].append(str(fret).ljust(2, "-"))
             else:
                 tab_lines[visual].append("--")

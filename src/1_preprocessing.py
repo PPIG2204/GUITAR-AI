@@ -43,10 +43,9 @@ def extract_audio_features(y, sr):
     else:
         raise ValueError(f"Unknown FEATURE_TYPE: {config.FEATURE_TYPE}")
 
-    # Log-scale and Normalize [0, 1]
-    spec_db = librosa.amplitude_to_db(spec, ref=np.max)
-    spec_db -= spec_db.min()
-    spec_db /= (spec_db.max() + 1e-8)
+    # THE FIX: Log-scale with an 80dB noise floor, then Normalize [0, 1]
+    spec_db = librosa.amplitude_to_db(spec, ref=np.max, top_db=80)
+    spec_db = (spec_db + 80) / 80.0 
     
     # Return as (Time, Freq)
     return spec_db.T.astype(np.float32)
