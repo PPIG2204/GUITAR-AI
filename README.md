@@ -25,34 +25,64 @@ Transcribing polyphonic guitar music is a complex task due to the ambiguity of s
 * **Data Handling:** JAMS (JSON Annotated Music Specification)
 * **Tablature Output:** PyGuitarPro
 
+## � Quick Start - Web Demo
+
+If you just want to try the guitar transcription demo without training:
+
+1. **Clone and setup:**
+   ```bash
+   git clone https://github.com/PPIG2204/GUITAR-AI.git
+   cd GUITAR-AI
+   python -m venv venv
+   venv\Scripts\activate  # Windows
+   # source venv/bin/activate  # Linux/Mac
+   pip install -r requirements.txt
+   ```
+
+2. **Run the web demo:**
+   ```bash
+   python web_demo.py
+   ```
+
+3. **Open browser:** Go to `http://127.0.0.1:8501` and upload a guitar audio file!
+
+> **Note:** The trained model checkpoint is included in the repository, so no training required!
+
+---
+
 ## 📂 Project Structure
 
 ```bash
 GUITAR-AI/
-├── data/               # Raw audio and annotations (JAMS files)
-├── src/
-│   ├── models/         # Neural network architectures
-│   └── scripts/        # Data preprocessing and utility scripts
-├── output_tab/         # Generated tablature results
-├── config.yaml         # Project configurations
-└── requirements.txt    # Python dependencies
+├── .vscode/                               # VS Code workspace settings
+├── archieve/                              # Legacy scripts and utilities
+│   └── legacy_scripts/
+├── results/                               # Experiment outputs and saved models
+│   └── Exp_CQT_GRU_HighWeight/
+│       └── saved_models/                   # Trained model checkpoints
+├── src/                                   # Source code and core project scripts
+├── .gitignore
+├── LICENSE
+├── README.md
+├── config.yaml
+├── requirements.txt
+└── web_demo.py                            # Local web server for tab generation
 ```
 
-The project utilizes a numbered script pipeline located in `src/scripts/` to ensure a reproducible workflow:
+The `src/` folder remains unchanged from the existing project layout.
 
-| Script | Description |
+## File Descriptions
+
+| File | Description |
 | :--- | :--- |
-| `00_check_environment.py` | Verifies GPU availability and required library versions. |
-| `01_organize_files.py` | Splits **GuitarSet** into Train/Test sets (Player 05 reserved for testing). |
-| `02_preprocessing.py` | Converts audio to CQT spectrograms and JAMS to label matrices (`.npz`). |
-| `03_train.py` | Trains the CNN model and saves checkpoints. |
-| `03b_plot_model.py` | Visualizes training loss and model architecture. |
-| `04_plot_cqt.py` | Helper tool to inspect CQT features. |
-| `05_generate_tab.py` | **Inference:** Generates tablature from new audio files. |
-| `07_evaluate.py` | Calculates Precision, Recall, and F1 metrics on the test set. |
-| `08_threshold_sweep.py` | Optimizes the probability threshold for note detection. |
-| `09_constraint_decoding.py` | Compares `raw` model output vs. `viterbi` decoding. |
-
+| `src/1_preprocessing.py` | Preprocesses raw audio and JAMS files into training chunks. |
+| `src/2_train.py` | Trains the GuitarTranscriberCNN model and saves the checkpoint. |
+| `src/3_evaluate.py` | Evaluates model performance on the test split. |
+| `src/4_inference.py` | Extracts audio features and runs inference with the trained model. |
+| `src/config.py` | Defines configuration values for audio, model, and training. |
+| `src/model.py` | Contains the neural network architecture. |
+| `src/paths.py` | Defines project path locations for data and outputs. |
+| `web_demo.py` | Starts a local web server for audio upload and tab generation. |
 
 # How to Run GUITAR-AI (Windows & Linux)
 
@@ -107,6 +137,20 @@ sudo apt install ffmpeg libsndfile1
 Download via [Gyan.dev](https://www.gyan.dev/ffmpeg/) and add the bin folder to your System Path.
 
 ## 2. Running the scripts
+
+### Quick Web Demo (No Training Required)
+If you just want to test the transcription with the pre-trained model:
+
+```bash
+# After installation above
+python web_demo.py
+# Then open http://127.0.0.1:8501 in your browser
+```
+
+### Full Pipeline (Training from Scratch)
+### Full Pipeline (Training from Scratch)
+If you want to retrain the model or run the complete pipeline:
+
 ### 0. Change Directory
 ``` bash
 cd src/scripts
@@ -131,4 +175,6 @@ python3 05_generate_tab.py
 python3 08_threshold_sweep.py
 python3 09_constraint_decoding.py
 ```
+
+> **Note:** After training, you can also run `python web_demo.py` from the project root to use the newly trained model.
 
